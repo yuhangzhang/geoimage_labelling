@@ -14,7 +14,7 @@ import cv2
 from cv2 import imwrite as imwrite
 
 import numpy as np
-
+import shapefile as sf
 
 class InteractiveDialog(QDialog):
 
@@ -158,6 +158,10 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
 
 
+class myshapefile:
+    def __init__(self):
+        self.inputfile = sf.Reader("/g/data1a/ge3/AEM_Model/3D_AEM_model_V3.shp")
+        self.inputrecord = self.inputfile.records()
 
 
 
