@@ -13,8 +13,10 @@ import PyQt5.QtCore as QtCore
 import cv2
 from cv2 import imwrite as imwrite
 
+
 import numpy as np
 import shapefile as sf
+import sklearn.decomposition as sd
 
 class InteractiveDialog(QDialog):
 
@@ -160,14 +162,71 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
 class myshapefile:
     def __init__(self):
-        self.inputfile = sf.Reader("/g/data1a/ge3/AEM_Model/3D_AEM_model_V3.shp")
-        self.inputrecord = self.inputfile.records()
+        inputfile = sf.Reader("/g/data1a/ge3/AEM_Model/3D_AEM_model_V3.shp")
+        inputrecord = np.array(inputfile.records())
+
+        xyz = inputrecord[:,10:13].astype(float) #nx3 matrix
+
+        height = len(np.unique(xyz[:,2], axis=0))
+        width = len(np.unique(xyz[:,0:2], axis=0))
+
+        #project x, y onto a line
+        pca = sd.PCA(n_components=1)
+        pca.fit(xyz[:,0:2])
+        xy = pca.transform(xyz[:,0:2])
+
+        print(inputrecord.shape)
+        print(xy.shape)
+
+
+        self.point = np.hstack([inputrecord,xy.reshape(-1,1),inputrecord[:,12].reshape(-1,1)])
 
 
 
 
 
+    def getimage(self,width,height):
+        img = np.zeros([width,height,3],dtype=float)
 
+        self.bucket = [[[] for h in range(height)] for w in range(width)]
+
+        self.point[:,-1] = np.round(
+                                    (self.point[:,-1].astype(float) - self.point[:,-1].astype(float).min())
+                                    /(self.point[:,-1].astype(float).max() - self.point[:,-1].astype(float).min())
+                                    *(height-1)
+                                   )
+        self.point[:,-2] = np.round(
+                                    (self.point[:,-2].astype(float) - self.point[:,-2].astype(float).min())
+                                    /(self.point[:, -2].astype(float).max() - self.point[:, -2].astype(float).min())
+                                    *(width-1)
+                                   )
+
+        bucket_size = np.zeros([width,height,3],dtype=np.int)
+
+        for p in self.point:
+            p = p[[2,3,4,-2,-1]].astype(float)
+
+            self.bucket[int(p[-2])][int(p[-1])].append(p)
+            img[int(p[-2]), int(p[-1]), 0] = p[0]
+            img[int(p[-2]), int(p[-1]), 1] = p[1]
+            img[int(p[-2]), int(p[-1]), 2] = p[2]
+            bucket_size[int(p[-2]), int(p[-1]), :] = bucket_size[int(p[-2]), int(p[-1]), :]+1
+
+        img = img/bucket_size
+
+        minr = img[:,:,0].min()
+        ming = img[:,:,1].min()
+        minb = img[:,:,2].min()
+
+        maxr = img[:,:,0].max()
+        maxg = img[:,:,1].max()
+        maxb = img[:,:,2].max()
+
+        img[:, :, 0] = (img[:, :, 0] - minr) * 255 / (maxr - minr)
+        img[:, :, 1] = (img[:, :, 1] - ming) * 255 / (maxg - ming)
+        img[:, :, 2] = (img[:, :, 2] - minb) * 255 / (maxb - minb)
+
+        return(img.astype(np.uint8))
 
 
 
@@ -196,6 +255,11 @@ class TestWidget(QWidget):
 
 
 if __name__ == "__main__":
+
+    x=myshapefile()
+    y=x.getimage(800,600)
+    cv2.imwrite('gui.png',y)
+
     app = QApplication(sys.argv)
     widget = TestWidget()
     widget.resize(640, 480)
