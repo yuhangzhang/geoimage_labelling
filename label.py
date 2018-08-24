@@ -186,7 +186,7 @@ class myshapefile:
 
 
     def getimage(self,width,height):
-        img = np.zeros([width,height,3],dtype=float)
+        img = np.zeros([height,width,3],dtype=float)
 
         self.bucket = [[[] for h in range(height)] for w in range(width)]
 
@@ -204,13 +204,20 @@ class myshapefile:
         bucket_size = np.zeros([width,height,3],dtype=np.int)
 
         for p in self.point:
-            p = p[[2,3,4,-2,-1]].astype(float)
+            if p[1]!='Surface':
+                p = p[[2,3,4,-2,-1]].astype(float)
 
-            self.bucket[int(p[-2])][int(p[-1])].append(p)
-            img[int(p[-2]), int(p[-1]), 0] = p[0]
-            img[int(p[-2]), int(p[-1]), 1] = p[1]
-            img[int(p[-2]), int(p[-1]), 2] = p[2]
-            bucket_size[int(p[-2]), int(p[-1]), :] = bucket_size[int(p[-2]), int(p[-1]), :]+1
+                self.bucket[int(p[-2])][int(p[-1])].append(p)
+                img[int(p[-1]), int(p[-2]), 0] = p[0]
+                img[int(p[-1]), int(p[-2]), 1] = p[1]
+                img[int(p[-1]), int(p[-2]), 2] = p[2]
+                bucket_size[int(p[-2]), int(p[-1]), :] = bucket_size[int(p[-2]), int(p[-1]), :]+1
+
+        for i in range(bucket_size.shape[0]):
+            for j in range(bucket_size.shape[1]):
+                for k in range(bucket_size.shape[2]):
+                    if bucket_size[i,j,k]==0:
+                        bucket_size[i, j, k]=1
 
         img = img/bucket_size
 
@@ -221,6 +228,9 @@ class myshapefile:
         maxr = img[:,:,0].max()
         maxg = img[:,:,1].max()
         maxb = img[:,:,2].max()
+
+        print(minr,ming,minb)
+        print(maxr,maxg,maxb)
 
         img[:, :, 0] = (img[:, :, 0] - minr) * 255 / (maxr - minr)
         img[:, :, 1] = (img[:, :, 1] - ming) * 255 / (maxg - ming)
