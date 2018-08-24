@@ -92,11 +92,11 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
             # finish the current crop
             if event.button() == QtCore.Qt.LeftButton:
-                label = self.dialog.gettext()
+                self.currentlabel = self.dialog.gettext()
 
-                print(label)
+                print(self.currentlabel)
 
-                if label[1]==True:
+                if self.currentlabel[1]==True:
                     self.cleancontour()
 
                     poly = QPolygon()
@@ -106,7 +106,7 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
                     brush = QBrush()
                     brush.setColor(Qt.white)
-                    brush.setStyle(Qt.Dense4Pattern)
+                    brush.setStyle(Qt.Dense6Pattern)
                     self.addPolygon(QPolygonF(poly),brush=brush)
 
 
@@ -158,8 +158,21 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
     def cleancontour(self):
         i,j = polygon(self.polyx,self.polyy)
-        self.label_all[j,i]=255
+        self.label_all[j,i]=int(self.currentlabel[0])
         imwrite('c.png',self.label_all)
+
+    def export(self):
+        fw = open('exported_labels.txt', 'w')
+
+        for h in range(self.label_all.shape[0]):
+            for w in range(self.label_all.shape[1]):
+                if self.label_all[h,w]>0:
+                    points = self.shapefile.getpoint(w,h)
+
+                    for p in points:
+                        np.savetxt(fw, np.append(p,self.label_all[h,w]).reshape(1, -1), fmt='%s')
+
+        fw.close()
 
 
 
@@ -186,7 +199,8 @@ class myshapefile:
 
 
 
-
+    def getpoint(self,w,h):
+        return self.bucket[w][h]
 
     def getimage(self,width,height):
         img = np.zeros([height,width,3],dtype=float)
@@ -208,15 +222,15 @@ class myshapefile:
 
         for p in self.point:
             if p[1]!='Surface':
-                p = p[[2,4,5,-2,-1]].astype(float)
+                #p = p[[2,4,5,-2,-1]].astype(float)
                 #p = p[[2, 2, 2, -2, -1]].astype(float)
 
                 p[-1]=height-p[-1]-1
 
                 self.bucket[int(p[-2])][int(p[-1])].append(p)
-                img[int(p[-1]), int(p[-2]), 0] = img[int(p[-1]), int(p[-2]), 0]+p[0]
-                img[int(p[-1]), int(p[-2]), 1] = img[int(p[-1]), int(p[-2]), 1]+p[1]
-                img[int(p[-1]), int(p[-2]), 2] = img[int(p[-1]), int(p[-2]), 2]+p[2]
+                img[int(p[-1]), int(p[-2]), 0] = img[int(p[-1]), int(p[-2]), 0]+p[2]
+                img[int(p[-1]), int(p[-2]), 1] = img[int(p[-1]), int(p[-2]), 1]+p[4]
+                img[int(p[-1]), int(p[-2]), 2] = img[int(p[-1]), int(p[-2]), 2]+p[5]
                 bucket_size[int(p[-1]), int(p[-2]), :] = bucket_size[int(p[-1]), int(p[-2]), :]+1
 
         for i in range(bucket_size.shape[0]):
@@ -296,9 +310,13 @@ class TestWidget(QWidget):
         self.button = QPushButton("load image")
         self.button.clicked.connect(self.do_test)
 
+        self.exportbutton = QPushButton("export label")
+        self.exportbutton.clicked.connect(self.scene.export)
+
         layout = QVBoxLayout()
         layout.addWidget(self.button)
         layout.addWidget(self.view)
+        layout.addWidget(self.exportbutton)
         self.setLayout(layout)
 
     def do_test(self):
