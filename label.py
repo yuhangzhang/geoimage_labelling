@@ -62,7 +62,7 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
         #initiate label image
         self.label_all = np.zeros([self.pixmap.height(), self.pixmap.width()])
-        self.label_all.fill(Qt.black)
+
 
 
         self.draw_switch = False
@@ -106,7 +106,7 @@ class InteractiveGraphicsScene(QGraphicsScene):
 
                     brush = QBrush()
                     brush.setColor(Qt.white)
-                    brush.setStyle(Qt.Dense6Pattern)
+                    brush.setStyle(Qt.Dense5Pattern)
                     self.addPolygon(QPolygonF(poly),brush=brush)
 
 
@@ -169,6 +169,11 @@ class InteractiveGraphicsScene(QGraphicsScene):
                 if self.label_all[h,w]>0:
                     points = self.shapefile.getpoint(w,h)
 
+                    print('here')
+                    print(h,w)
+                    print(self.label_all[h,w])
+                    print(len(points))
+
                     for p in points:
                         np.savetxt(fw, np.append(p,self.label_all[h,w]).reshape(1, -1), fmt='%s')
 
@@ -225,13 +230,14 @@ class myshapefile:
                 #p = p[[2,4,5,-2,-1]].astype(float)
                 #p = p[[2, 2, 2, -2, -1]].astype(float)
 
-                p[-1]=height-p[-1]-1
+                inversedh=height-int(float(p[-1]))-1
+                originalw=int(float(p[-2]))
 
-                self.bucket[int(p[-2])][int(p[-1])].append(p)
-                img[int(p[-1]), int(p[-2]), 0] = img[int(p[-1]), int(p[-2]), 0]+p[2]
-                img[int(p[-1]), int(p[-2]), 1] = img[int(p[-1]), int(p[-2]), 1]+p[4]
-                img[int(p[-1]), int(p[-2]), 2] = img[int(p[-1]), int(p[-2]), 2]+p[5]
-                bucket_size[int(p[-1]), int(p[-2]), :] = bucket_size[int(p[-1]), int(p[-2]), :]+1
+                self.bucket[originalw][inversedh].append(p)
+                img[inversedh, originalw, 0] = img[inversedh, originalw, 0]+float(p[2])
+                img[inversedh, originalw, 1] = img[inversedh, originalw, 1]+float(p[4])
+                img[inversedh, originalw, 2] = img[inversedh, originalw, 2]+float(p[5])
+                bucket_size[inversedh, originalw, :] = bucket_size[inversedh, originalw, :]+1
 
         for i in range(bucket_size.shape[0]):
             for j in range(bucket_size.shape[1]):
