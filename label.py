@@ -55,7 +55,10 @@ class InteractiveGraphicsScene(QGraphicsScene):
         super(InteractiveGraphicsScene, self).__init__(parent)
 
         #initiate input image
-        self.pixmap = QPixmap('Desert.jpg')
+        self.shapefile = myshapefile()
+        arr = self.shapefile.getimage(1600, 600)
+        qimg = QImage(arr,arr.shape[1],arr.shape[0],QImage.Format_RGB888)
+        self.pixmap = QPixmap(qimg)
 
         #initiate label image
         self.label_all = np.zeros([self.pixmap.height(), self.pixmap.width()])
@@ -205,12 +208,15 @@ class myshapefile:
 
         for p in self.point:
             if p[1]!='Surface':
-                p = p[[2,3,4,-2,-1]].astype(float)
+                p = p[[2,4,5,-2,-1]].astype(float)
+                #p = p[[2, 2, 2, -2, -1]].astype(float)
+
+                p[-1]=height-p[-1]-1
 
                 self.bucket[int(p[-2])][int(p[-1])].append(p)
-                img[int(p[-1]), int(p[-2]), 0] = p[0]
-                img[int(p[-1]), int(p[-2]), 1] = p[1]
-                img[int(p[-1]), int(p[-2]), 2] = p[2]
+                img[int(p[-1]), int(p[-2]), 0] = img[int(p[-1]), int(p[-2]), 0]+p[0]
+                img[int(p[-1]), int(p[-2]), 1] = img[int(p[-1]), int(p[-2]), 1]+p[1]
+                img[int(p[-1]), int(p[-2]), 2] = img[int(p[-1]), int(p[-2]), 2]+p[2]
                 bucket_size[int(p[-1]), int(p[-2]), :] = bucket_size[int(p[-1]), int(p[-2]), :]+1
 
         for i in range(bucket_size.shape[0]):
@@ -221,22 +227,61 @@ class myshapefile:
 
         img = img/bucket_size
 
-        minr = img[:,:,0].min()
-        ming = img[:,:,1].min()
-        minb = img[:,:,2].min()
+        minr = img[:, :, 0][np.nonzero(img[:, :, 0])].min()
+        ming = img[:, :, 1][np.nonzero(img[:, :, 0])].min()
+        minb = img[:, :, 2][np.nonzero(img[:, :, 0])].min()
 
-        maxr = img[:,:,0].max()
-        maxg = img[:,:,1].max()
-        maxb = img[:,:,2].max()
+        maxr = img[:, :, 0].max()
+        maxg = img[:, :, 1].max()
+        maxb = img[:, :, 2].max()
 
-        print(minr,ming,minb)
-        print(maxr,maxg,maxb)
+        img[:, :, 0][np.nonzero(img[:, :, 0])] = img[:, :, 0][np.nonzero(img[:, :, 0])] + (maxr - minr)*0.25
+        img[:, :, 1][np.nonzero(img[:, :, 1])] = img[:, :, 1][np.nonzero(img[:, :, 1])] + (maxg - ming)*0.25
+        img[:, :, 2][np.nonzero(img[:, :, 2])] = img[:, :, 2][np.nonzero(img[:, :, 2])] + (maxb - minb)*0.25
 
-        img[:, :, 0] = (img[:, :, 0] - minr) * 255 / (maxr - minr)
-        img[:, :, 1] = (img[:, :, 1] - ming) * 255 / (maxg - ming)
-        img[:, :, 2] = (img[:, :, 2] - minb) * 255 / (maxb - minb)
+        print(minr, ming, minb)
+        print(maxr, maxg, maxb)
 
-        return(img.astype(np.uint8))
+        updis = np.zeros([height,width],dtype=np.int)
+        img_interpolate = np.zeros([height,width,3],dtype=np.float32)
+
+        for w in range(img.shape[1]):
+            dis=0
+            lastpoint = img[0,w,:]
+            for h in range(img.shape[0]):
+                if abs(img[h,w,0])+abs(img[h,w,1])+abs(img[h,w,2])==0:
+                    dis=dis+1
+                    img_interpolate[h,w,:] = lastpoint
+                    updis[h,w] = dis
+                else:
+                    img_interpolate[h, w, :] = img[h, w, :]
+                    dis=0
+                    lastpoint = img[h, w, :]
+
+        for w in range(img.shape[1]):
+            dis=0
+            lastpoint = img[-1,w,:]
+            for h in reversed(range(img.shape[0])):
+                if abs(img[h,w,0])+abs(img[h,w,1])+abs(img[h,w,2])==0 and abs(img_interpolate[h,w,0])+abs(img_interpolate[h,w,1])+abs(img_interpolate[h,w,2])>0:
+                    if abs(lastpoint[0])+abs(lastpoint[1])+abs(lastpoint[2])==0:
+                        img_interpolate[h, w, :] = lastpoint
+                    else:
+                        img_interpolate[h,w,:] = (img_interpolate[h,w,:]*dis+lastpoint*updis[h,w])/(dis+updis[h,w])
+                    dis = dis + 1
+                elif abs(img[h,w,0])+abs(img[h,w,1])+abs(img[h,w,2])==0:
+                    break
+                else:
+                    dis=0
+                    lastpoint = img[h, w, :]
+
+        img_interpolate[:, :, 0] = (img_interpolate[:, :, 0]) * 255 / (maxr + (maxr - minr)*0.25)
+        img_interpolate[:, :, 1] = (img_interpolate[:, :, 1]) * 255 / (maxg + (maxg - ming)*0.25)
+        img_interpolate[:, :, 2] = (img_interpolate[:, :, 2]) * 255 / (maxb + (maxb - minb)*0.25)
+
+
+
+
+        return(img_interpolate.astype(np.uint8))
 
 
 
@@ -266,9 +311,9 @@ class TestWidget(QWidget):
 
 if __name__ == "__main__":
 
-    x=myshapefile()
-    y=x.getimage(800,600)
-    cv2.imwrite('gui.png',y)
+#    x=myshapefile()
+#    y=x.getimage(1600,600)
+#    cv2.imwrite('gui.png',y)
 
     app = QApplication(sys.argv)
     widget = TestWidget()
