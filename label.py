@@ -201,7 +201,7 @@ class myshapefile:
                                     *(width-1)
                                    )
 
-        bucket_size = np.zeros([width,height,3],dtype=np.int)
+        bucket_size = np.zeros([height,width,3],dtype=np.int)
 
         for p in self.point:
             if p[1]!='Surface':
@@ -211,7 +211,7 @@ class myshapefile:
                 img[int(p[-1]), int(p[-2]), 0] = p[0]
                 img[int(p[-1]), int(p[-2]), 1] = p[1]
                 img[int(p[-1]), int(p[-2]), 2] = p[2]
-                bucket_size[int(p[-2]), int(p[-1]), :] = bucket_size[int(p[-2]), int(p[-1]), :]+1
+                bucket_size[int(p[-1]), int(p[-2]), :] = bucket_size[int(p[-1]), int(p[-2]), :]+1
 
         for i in range(bucket_size.shape[0]):
             for j in range(bucket_size.shape[1]):
